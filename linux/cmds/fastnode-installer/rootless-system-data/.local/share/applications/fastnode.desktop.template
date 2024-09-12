@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Version={{.Version}}
+Name=Fastnode
+Comment=Fastnode - ML powered code completions
+Exec={{.HomeDir}}/.local/share/fastnode/fastnoded
+Icon={{.HomeDir}}/.local/share/icons/hicolor/128x128/apps/fastnode.png
+Categories=Development;IDE;

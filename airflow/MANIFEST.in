@@ -1,0 +1,2 @@
+graft fastnode_airflow/templates
+graft fastnode_airflow/files

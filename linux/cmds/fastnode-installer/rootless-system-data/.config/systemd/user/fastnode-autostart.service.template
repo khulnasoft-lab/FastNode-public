@@ -1,0 +1,10 @@
+[Unit]
+Description=fastnoded autostart on first login of a user
+
+[Service]
+Type=simple
+StandardOutput=null
+ExecStart={{.HomeDir}}/.local/share/fastnode/current/fastnoded --system-boot
+
+[Install]
+WantedBy=default.target

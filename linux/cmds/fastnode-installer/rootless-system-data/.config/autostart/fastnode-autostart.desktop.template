@@ -1,0 +1,8 @@
+[Desktop Entry]
+NoDisplay=true
+Type=Application
+Version={{.Version}}
+Name=Fastnode
+Comment=Fastnode - ML powered code completions
+Exec={{.HomeDir}}/.local/share/fastnode/fastnoded --system-boot
+Hidden=false

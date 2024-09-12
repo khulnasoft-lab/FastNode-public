@@ -1,0 +1,49 @@
+#!/bin/sh
+
+# Removes installed versions of fastnode, which are older than the current version
+removeOldVersions() {
+  [ -z "$ROOT" ] && return
+  [ -z "$CURRENT_DIRNAME" ] && return
+
+  for path in $(find "$ROOT" -name 'fastnode-v*' | sort); do
+    if [ "$CURRENT_DIRNAME" = "$(basename "$path")" ]; then
+      # don't remove current version and later versions
+      return
+    else
+      echo "Removing old version of Fastnode: $path"
+      rm -rf "$path"
+    fi
+  done
+}
+
+ROOT="$HOME/.local/share/fastnode"
+CURRENT="$ROOT/current"
+
+CURRENT_DIRNAME="$(basename "$(readlink -f "$CURRENT")" | grep "fastnode-v")"
+CURRENT_VERSION="$(echo "$CURRENT_DIRNAME" | sed -e 's/^fastnode-v//g')"
+[ -z "$CURRENT_VERSION" ] && echo "no fastnode version found at $ROOT. terminating." && exit 1
+
+FASTNODED_FLAGS="$@"
+
+export GODEBUG="madvdontneed=1"
+
+echo "starting fastnoded $CURRENT_VERSION" "$FASTNODED_FLAGS"
+until "$ROOT/fastnode-v$CURRENT_VERSION/fastnoded" $FASTNODED_FLAGS; do
+    FASTNODED_EXIT="$?"
+    if [ "$FASTNODED_EXIT" = "10" ]; then
+        # cleanup old versions after fastnode requested a restart
+        # this is needed for a self-update of fastnoded
+        # if fastnode-updater triggered the restart, then the old dirs have already been removed
+        CURRENT_DIRNAME="$(basename "$(readlink -f "$CURRENT")" | grep "fastnode-v")"
+        CURRENT_VERSION="$(echo "$CURRENT_DIRNAME" | sed -e 's/^fastnode-v//g')"
+        removeOldVersions
+
+        FASTNODED_FLAGS="--relaunch-after-update"
+        [ -z "$CURRENT_VERSION" ] && echo "No fastnode version found at $ROOT after restart was requested. terminating." && exit 1
+        echo "fastnoded terminated with exit code $FASTNODED_EXIT to request a restart. restarting fastnoded, version $CURRENT_VERSION"
+        sleep 1
+    else
+        echo "fastnoded terminated with exit code $FASTNODED_EXIT. terminating."
+        exit "$FASTNODED_EXIT"
+    fi
+done

@@ -1,0 +1,19 @@
+#@ load("@ytt:overlay", "overlay")
+#@data/values
+
+#@overlay/match by=overlay.all
+---
+env: prod
+hostname: release.khulnasoft.com
+#@overlay/replace
+ingressHostnames:
+  - release.khulnasoft.com
+  - linux.khulnasoft.com
+  - windows.khulnasoft.com
+#@overlay/replace
+certificateDomains:
+  - release.khulnasoft.com
+  - linux.khulnasoft.com
+  - windows.khulnasoft.com
+port: 9093
+

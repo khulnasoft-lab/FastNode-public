@@ -2,7 +2,7 @@ This directory contains a visualizer for error messages based on D3.js.
 
 To generate the embedding:
 
-    cd fastnodeco/fastnode-python
+    cd khulnasoft-lab/fastnode-python
     PYTHONPATH=. python bin/fit_embedding_by_class.py errormessages.txt embedding.json --gamma -5 --limit 200
 
 To visualize the results:

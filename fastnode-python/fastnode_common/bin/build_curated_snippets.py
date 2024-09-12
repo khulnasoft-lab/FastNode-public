@@ -54,7 +54,7 @@ if __name__ == "__main__":
 
         for snip in snippets:
             # This structure maps to pythoncuration.Snippet
-            # in fastnodeco/fastnode-go/codeexample.
+            # in khulnasoft-lab/fastnode-go/codeexample.
             obj = {
                 'Curated': example,
                 'Snippet': snip.to_json(),

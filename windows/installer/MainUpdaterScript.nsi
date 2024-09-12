@@ -1,0 +1,175 @@
+Name "Fastnode Updater"
+VIProductVersion "${VERSION}"
+VIAddVersionKey "ProductVersion" "${VERSION}"  ; for some reason we need this, too
+VIAddVersionKey "FileVersion" "${VERSION}"
+VIAddVersionKey "LegalCopyright" "Copyright © Fastnode 2017"
+VIAddVersionKey "FileDescription" "Fastnode Updater"
+VIAddVersionKey "ProductName" "Fastnode Updater"
+VIAddVersionKey "OriginalFilename" "FastnodeUpdater.exe"
+VIAddVersionKey "InternalName" "FastnodeUpdater"
+OutFile "current_build_bin\out\FastnodeUpdater.exe"
+Icon "..\tools\artwork\icon\app.ico"
+SetCompressor /SOLID lzma
+RequestExecutionLevel admin
+SilentInstall silent
+
+Var executable_type ; e.g. "installer" "uninstaller" "updater"
+Var machine_id_already_existed
+Var redist
+
+!include "LogicLib.nsh"
+!include "WordFunc.nsh"
+!include "StrFunc.nsh"
+${StrLoc} ; must initialize this before it can be used in a Function (a nuance of StrFunc.nsh)
+${UnStrLoc}
+${StrRep}
+${UnStrRep}
+!include "FileFunc.nsh"
+!include "WinVer.nsh"
+!include "GetProcessInfo.nsh"
+!include "servicelib.nsh"
+!include "NsisIncludes\Debug.nsh"
+!include "NsisIncludes\CheckAlreadyRunningInstallOrUninstall.nsh"
+!include "NsisIncludes\FindFastnodeInstallationFolder.nsh"
+!include "NsisIncludes\KillAllAvailableRunningInstances.nsh"
+
+!define OutputDebugString `System::Call kernel32::OutputDebugString(ts)`
+
+Section ""
+	; we are a 32 bit installer, uninstaller, and updater, but the main Fastnode binaries are 64-bit, so we
+	;   try to standardize on the 64-bit view where possible.
+	SetRegView 64
+
+	StrCpy $executable_type "updater"
+
+	Call SilentCheckAlreadyRunningInstallOrUninstall
+	Pop $0
+	${If} $0 != 0
+		${Debug} "Installer/uninstaller/updater is already running.  Quiting."
+		Quit
+	${EndIf}
+
+	Call FindFastnodeInstallationFolder
+	Pop $0
+	${If} $0 == ""
+		${Debug} "Could not find installation folder.  Quiting."
+		Quit
+	${EndIf}
+	${Debug} "Installation found at $0"
+
+	; === DO NOT CLOBBER $0 AFTER THIS POINT ===
+
+	; Compare versions to make sure the version in this updater is newer than the preexisting one
+	${Debug} "Checking versions..."
+	GetTempFileName $1 "$0\"
+	File "/oname=$1" "current_build_bin\in\FastnodeService.exe"
+	${GetFileVersion} "$1" $2
+	Delete $1
+	${If} $2 == ""
+		${Debug} "Could not read embedded FastnodeService.exe version.  Quiting.  (Fastnoded.exe was not killed and FastnodeService was not stopped.)"
+		Quit
+	${EndIf}
+	${GetFileVersion} "$0\FastnodeService.exe" $3
+	${If} $2 == ""
+		${Debug} "Could not read existing FastnodeService.exe version -- continuing..."
+		Goto done_version_compare
+	${EndIf}
+	${VersionCompare} $2 $3 $4
+	${If} $4 != 1
+		${Debug} "The existing version is either equal or greater ($2 $3 $4).  Quiting.  (fastnoded.exe was not killed, FastnodeService was not stopped.)"
+		Quit
+	${EndIf}
+	done_version_compare:
+	${Debug} "Versions check out.  We are newer.  Continuing..."
+
+	; === DO NOT CLOBBER $0 AFTER THIS POINT ===
+
+	; Kill fastnoded.exe (and Fastnode.exe) if it's running
+	Call KillAllAvailableRunningInstances
+
+	; Remove existing FastnodeOnboarding.exe (its depricated now)
+	Delete /REBOOTOK "$0\FastnodeOnboarding.exe"
+	Delete /REBOOTOK "$0\FastnodeOnboarding.exe.config"
+
+	; === DO NOT CLOBBER $0 AFTER THIS POINT ===
+
+	; Try to stop service, as well, so we can update it
+	${Debug} "Stopping service..."
+	!insertmacro SERVICE "stop" "FastnodeService" ""
+	; wait for service to exit
+	; the WaitProcEnd call works iff elevated.  same goes for stopping it.  we're elvated.
+	; note we aren't calling KillProc/TerminateProcess; this is a graceful exit.
+	; this timeout empirically works most times I've tested it; ultimately we're comfortable
+	;   without a TerminalProcess() fallback because if there's an issue here we can
+	;   just change the updater and old clients will still run/get it.
+	FindProcDLL::WaitProcEnd "FastnodeService.exe" 20000
+	${If} $R0 == 100
+		${Debug} "Timed out waiting for service to exit gracefully.  Exiting update."
+		!insertmacro SERVICE "start" "FastnodeService" ""
+		Quit
+	${Else}
+		${Debug} "Service exited successfully"
+	${EndIf}
+
+	; === DO NOT CLOBBER $0 AFTER THIS POINT ===
+
+	;; Misc updates now that we are shipping with the sidebar:
+
+	; Update/Add protocol handler
+	WriteRegStr HKLM "Software\Classes\fastnode" "" "URL:fastnode"
+	WriteRegStr HKLM "Software\Classes\fastnode" "URL Protocol" ""
+	WriteRegStr HKLM "Software\Classes\fastnode\shell\open\command" "" '"$0\win-unpacked\Fastnode.exe" "%1"'
+
+	; Update 'Run' key in registry
+	; NOTE: This doesn't work because the user running the updater is different from the user that installed
+	; Fastnode originally. This is currently handled by client/internal/autostart/autostart_windows.go once fastnoded is restarted.
+	; WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Fastnode" '"$0\fastnoded.exe" --system-boot'
+
+	; Remove local settings link, no longer needed
+	SetShellVarContext all
+	Delete /REBOOTOK "$SMPROGRAMS\Fastnode\Fastnode Local Settings.lnk"
+
+	; Copy files
+	${Debug} "Copying files..."
+	SetOutPath "$0\"
+	SetOverwrite try
+
+	ClearErrors
+	RMDir /r "$0\win-unpacked" ; remove old win-unpacked directory before replacing
+	File /r "current_build_bin\in\win-unpacked"
+	IfErrors 0 no_fastnode_file_copy_error
+		${Debug} "Error encountered when trying to replace win-unpacked directory.  Relaunching service, then quiting.  Service might restart fastnoded.exe."
+		!insertmacro SERVICE "start" "FastnodeService" ""
+		Quit
+	no_fastnode_file_copy_error:
+
+	ClearErrors
+	File "current_build_bin\in\fastnoded.exe"
+	IfErrors 0 no_fastnoded_file_copy_error
+		${Debug} "Error encountered when trying to replace fastnoded.exe.  Relaunching service, then quiting.  Service might restart fastnoded.exe."
+		!insertmacro SERVICE "start" "FastnodeService" ""
+		Quit
+	no_fastnoded_file_copy_error:
+
+	ClearErrors
+ 	ReadRegDword $redist HKLM "SOFTWARE\Microsoft\VisualStudio\14.0\VC\Runtimes\x64" "Installed"
+	IfErrors 0 redist_found
+		File "current_build_bin\in\vc_redist.x64.exe"
+		ExecWait '"$0\vc_redist.x64.exe" /install /passive /quiet /norestart'
+		Delete /REBOOTOK "$0\vc_redist.x64.exe"
+	redist_found:
+
+	File "current_build_bin\in\FastnodeService.exe"
+	File "current_build_bin\in\FastnodeService.exe.config"
+	File "current_build_bin\in\tensorflow.dll"
+	File "current_build_bin\out\Uninstaller.exe"
+
+	; Start new service
+	${Debug} "Starting FastnodeService (which might start fastnoded.exe)..."
+	!insertmacro SERVICE "start" "FastnodeService" ""
+
+	; Don't restart fastnoded.exe.  It will be restarted from the service using
+	; impersonation.
+
+	${Debug} "Done with update.  Quiting."
+SectionEnd

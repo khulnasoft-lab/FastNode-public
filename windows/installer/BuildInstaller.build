@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<project xmlns="http://nant.sf.net/release/0.86-beta1/nant.xsd" name="Fastnode" default="build">
+
+	<property name="nant.settings.currentframework" value="net-3.5"/>
+
+	<property name="curdir" value="${directory::get-current-directory()}" />
+	<property name="solutiondir" value="${curdir}\..\client" />
+	<property name="indir" value="${curdir}\current_build_bin\in" />
+	<property name="outdir" value="${curdir}\current_build_bin\out" />
+	<property name="buildsdir" value="${curdir}\builds" />
+	<property name="fastnodeupdatesigner" value="${curdir}\..\tools\fastnode_update_signer\bin\Debug\FastnodeUpdateSigner.exe" />
+	<property name="fastnodepatchupdatesigner" value="${curdir}\..\tools\fastnode_patch_update_signer\bin\Debug\FastnodePatchUpdateSigner.exe" />
+	<property name="thirdparty" value="${curdir}\..\tools\third_party" />
+	<property name="makensis" value="${thirdparty}\NSIS\makensis.exe" />
+	<property name="authenticodepassword" value="squash-warless-incision" />
+	<property name="devenv" value="C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\IDE" />
+	<property name="sacom" value="C:\Program Files\SmartAssembly 6\SmartAssembly.com" />
+	<property name="winsdk" value="C:\Program Files (x86)\Windows Kits\10\bin\x64" />
+	<!-- if empty, then no patch installer will be build -->
+	<property name="prevPatchVersion" value="" overwrite="false" />
+
+	<target name="build">
+		<if test="${not directory::exists(winsdk)}">
+			<fail message="No Windows SDK found. Please install from https://www.microsoft.com/en-us/download/details.aspx?id=3138." />
+		</if>
+
+
+		<!-- Figure out what the next build number should be -->
+		<tstamp property="year" pattern="yyyy" />
+		<tstamp property="monthday" pattern="Mdd" />
+		<property name="buildnum" value="0" />
+		<mkdir dir="${buildsdir}" if="${not directory::exists(buildsdir)}" />
+		<property name="buildnum" value="-1" />
+		<foreach item="Folder" in="${buildsdir}" property="foldername">
+			<if test="${string::contains(foldername, year + '.' + monthday)}">
+				<regex pattern="(?'foldername'\d+)$" input="${foldername}" /> <!-- Chop of everything leading up to the build number -->
+				<if test="${int::parse(foldername) > int::parse(buildnum)}">
+					<property name="buildnum" value="${foldername}" />
+				</if>
+			</if>
+		</foreach>
+		<property name="buildnum" value="${int::parse(buildnum) + 1}" /> <!-- Set current buildnum to max(buildnums) + 1 -->
+		<property name="buildnumstring" value="0.0.0.0" overwrite="false" />
+		<echo message="Build number is: ${buildnumstring}." />
+
+		<!-- Delete Everything in 'current_build_bin', Recursively -->
+		<delete><fileset><include name="${curdir}\current_build_bin\**.*" /></fileset></delete>
+
+		<!-- Rebuild VS Solution -->
+		<trycatch>
+			<try>
+				<echo file="${solutiondir}\AssemblyVersionInfo.cs">using System.Reflection; [assembly: AssemblyVersion("${buildnumstring}")] [assembly: AssemblyFileVersion("${buildnumstring}")]</echo>
+				<delete file="${curdir}\VisualStudioBuildLog.txt" />
+				<exec program="${devenv}\devenv.com" verbose="true" failonerror="true">
+					<arg value="${solutiondir}\Fastnode.sln" />
+					<arg value="/Rebuild" /><arg value="Release" />
+				</exec>
+			</try>
+			<finally>
+				<!-- restore the default AssemblyVersionInfo regardless of whether the exec task succeeded or failed -->
+				<echo file="${solutiondir}\AssemblyVersionInfo.cs">using System.Reflection; [assembly: AssemblyVersion("1.0.0.0")] [assembly: AssemblyFileVersion("1.0.0.0")]</echo>
+			</finally>
+		</trycatch>
+
+
+		<!-- Copy DLL's to a more local, setup-specific directory -->
+		<copy todir="${indir}\" file="${solutiondir}\FastnodeService\bin\x64\Release\FastnodeService.exe" />
+		<copy todir="${indir}\" file="${solutiondir}\FastnodeService\bin\x64\Release\FastnodeService.pdb" />
+		<copy todir="${indir}\" file="${solutiondir}\FastnodeService\bin\x64\Release\FastnodeService.exe.config" />
+
+		<property name="actualserviceversion" value="${fileversioninfo::get-product-version(fileversioninfo::get-version-info(indir+'\FastnodeService.exe'))}" />
+		<if test="${actualserviceversion != buildnumstring}">
+			<fail message="Something is wrong." />
+		</if>
+
+		<copy todir="${indir}\" file="${solutiondir}\FastnodeSetupSplashScreen\bin\x64\Release\FastnodeSetupSplashScreen.exe" />
+		<copy todir="${indir}\" file="${solutiondir}\FastnodeSetupSplashScreen\bin\x64\Release\FastnodeSetupSplashScreen.pdb" />
+		<copy todir="${indir}\" file="${solutiondir}\FastnodeSetupSplashScreen\bin\x64\Release\FastnodeSetupSplashScreen.exe.config" />
+
+		<property name="actualsplashscreenversion" value="${fileversioninfo::get-product-version(fileversioninfo::get-version-info(indir+'\FastnodeSetupSplashScreen.exe'))}" />
+		<if test="${actualsplashscreenversion != buildnumstring}">
+			<fail message="Something is wrong." />
+		</if>
+
+		<!-- TODO: update with result of fastnoded build -->
+		<copy todir="${indir}\" file="${curdir}\..\fastnoded.exe" />
+
+		<copy todir="${indir}\" file="${curdir}\..\fastnode-lsp.exe" />
+
+		<!-- Add libtensorflow -->
+		<copy tofile="${indir}\tensorflow.dll" file="${curdir}\..\tensorflow\lib\tensorflow.dll" />
+
+		<!-- Add Visual Studio Redistributabel 2015 Update 3, as tensorflow needs this to run -->
+		<copy todir="${indir}" file="${curdir}\..\deps\vc_redist.x64.exe" />
+
+		<!-- win-unpacked is placed in curdir\..\ prior to this script running -->
+		<!-- khulnasoft-lab/windows/build_electron.sh is responsbile for doing this -->
+		<copy todir="${indir}\win-unpacked\" >
+			<fileset basedir="${curdir}\..\win-unpacked"/>
+		</copy>
+
+		<!-- Manually set version info on fastnoded.exe -->
+		<exec program="${thirdparty}\verpatch.exe" verbose="true" failonerror="true">
+			<arg value="${indir}\fastnoded.exe" />
+			<arg value="${buildnumstring}" />
+			<arg value="/pv" /> <arg value="${buildnumstring}" />
+		</exec>
+
+		<!-- Manually set version info on fastnode-lsp.exe -->
+		<exec program="${thirdparty}\verpatch.exe" verbose="true" failonerror="true">
+			<arg value="${indir}\fastnode-lsp.exe" />
+			<arg value="${buildnumstring}" />
+			<arg value="/va" />
+			<arg value="/pv" /> <arg value="${buildnumstring}" />
+			<arg value="/s" /> <arg value="copyright" /> <arg value="Copyright © Fastnode ${year}" />
+		</exec>
+
+		<!-- Manually set version info on Fastnode.exe -->
+		<exec program="${thirdparty}\verpatch.exe" verbose="true" failonerror="true">
+			<arg value="${indir}\win-unpacked\Fastnode.exe" />
+			<arg value="${buildnumstring}" />
+			<arg value="/va" />
+			<arg value="/pv" /> <arg value="${buildnumstring}" />
+			<arg value="/s" /> <arg value="copyright" /> <arg value="Copyright © Fastnode ${year}" />
+			<arg value="/s" /> <arg value="product" /> <arg value="Fastnode" />
+		</exec>
+
+		<!-- Strong Sign Assemblies -->
+		<foreach item="String" in="FastnodeService.exe,FastnodeSetupSplashScreen.exe" delim="," property="filename">
+			<exec program="${thirdparty}\sn">
+				<arg value="-Ra" /> <arg value="${indir}\${filename}" /> <arg value="${solutiondir}\FastnodeStrongSignKeys.snk" />
+			</exec>
+		</foreach>
+
+
+		<!-- Authenticode Sign Assemblies, fastnoded.exe -->
+		<!-- Find the drive letter hosting the VHD / authenticode key -->
+		<foreach item="String" in="a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z" delim="," property="driveletter">
+			<if test="${file::exists(driveletter + ':\authenticode_key\authenticode_key.pfx')}">
+				<property name="authenticodekey" value="${driveletter}:\authenticode_key\authenticode_key.pfx" />
+			</if>
+		</foreach>
+		<if test="${not property::exists('authenticodekey')}">
+			<!-- You can choose to disable the <fail> below and simply print a warning, on your dev machine. -->
+			<!-- This can be useful for speed of development since Authenticode signing (timestamping) can -->
+			<!-- be slow, but do not commit a version without the <fail> -->
+			<fail message="No Authenticode key found. Failing the build. (You can disable this during development.)" />
+
+			<!--
+			<echo message="No Authenticode key found. Skipping..." />
+			<sleep seconds="3" />
+			-->
+		</if>
+		<if test="${property::exists('authenticodekey')}">
+			<foreach item="String"
+					in="win-unpacked\Fastnode.exe,FastnodeService.exe,FastnodeSetupSplashScreen.exe,fastnoded.exe,fastnode-lsp.exe,tensorflow.dll,vc_redist.x64.exe"
+					delim=","
+					property="filename">
+
+				<exec program="${winsdk}\signtool.exe">
+					<arg value="sign" /> <arg value="/f" /> <arg value="${authenticodekey}" /> <arg value="/p" /> <arg value="${authenticodepassword}" />
+					<arg value="/t" /> <arg value="http://timestamp.digicert.com" />
+					<arg value="/v" /> <arg value="${indir}\${filename}" />
+				</exec>
+				<exec program="${winsdk}\signtool.exe">
+					<arg value="sign" /> <arg value="/f" /> <arg value="${authenticodekey}" /> <arg value="/p" /> <arg value="${authenticodepassword}" />
+					<arg value="/tr" /> <arg value="http://timestamp.digicert.com/" />
+					<arg value="/td" /> <arg value="sha256" />
+					<arg value="/fd" /> <arg value="sha256" />
+					<arg value="/as" />
+					<arg value="/v" /> <arg value="${indir}\${filename}" />
+				</exec>
+			</foreach>
+		</if>
+
+
+		<!-- Create NSIS Uninstaller, and Authenticode sign it -->
+		<exec program="${makensis}">
+			<arg value="/DWRITE_UNINSTALLER_ONLY" /> <arg value="/DVERSION=${buildnumstring}" /> <arg value="${curdir}\MainInstallerScript.nsi" />
+		</exec>
+		<exec program="${outdir}\FastnodeUninstallerGenerator.exe" workingdir="${outdir}" /> <!-- this will create ${outdir}\Uninstaller.exe -->
+		<sleep milliseconds="2000" /> <!-- Give FastnodeUninstallerGenerator.exe time to release its handle on Uninstaller.exe -->
+		<delete file="${outdir}\FastnodeUninstallerGenerator.exe" />
+		<if test="${property::exists('authenticodekey')}">
+			<exec program="${winsdk}\signtool.exe">
+				<arg value="sign" /> <arg value="/f" /> <arg value="${authenticodekey}" /> <arg value="/p" /> <arg value="${authenticodepassword}" />
+				<arg value="/t" /> <arg value="http://timestamp.digicert.com" />
+				<arg value="/v" /> <arg value="${outdir}\Uninstaller.exe" />
+			</exec>
+			<exec program="${winsdk}\signtool.exe">
+				<arg value="sign" /> <arg value="/f" /> <arg value="${authenticodekey}" /> <arg value="/p" /> <arg value="${authenticodepassword}" />
+				<arg value="/tr" /> <arg value="http://sha256timestamp.ws.symantec.com/sha256/timestamp" />
+				<arg value="/td" /> <arg value="sha256" />
+				<arg value="/fd" /> <arg value="sha256" />
+				<arg value="/as" />
+				<arg value="/v" /> <arg value="${outdir}\Uninstaller.exe" />
+			</exec>
+		</if>
+
+
+		<!-- Create NSIS Installer and Updater -->
+		<exec program="${makensis}">
+			<arg value="/DVERSION=${buildnumstring}" /> <arg value="${curdir}\MainInstallerScript.nsi" />
+		</exec>
+		<exec program="${makensis}">
+			<arg value="/DVERSION=${buildnumstring}" /> <arg value="${curdir}\MainUpdaterScript.nsi" />
+		</exec>
+
+		<!-- generate the vpatch data at ${curdir}\patchFiles.nsi and ${curdir}\patchFiles\ -->
+		<if test="${prevPatchVersion != ''}">
+			<exec program="bash" verbose="true" failonerror="true">
+				<arg value="${curdir}\download_fastnode_release.sh"/>
+				<arg value="${prevPatchVersion}" />
+				<arg value="${curdir}\current_build_bin\out\FastnodeSetup.exe" />
+			</exec>
+
+			<exec program="${makensis}">
+				<arg value="/DVERSION=${buildnumstring}" />
+				<arg value="/DINDIR=${curdir}\current_build_bin\patch-setup-new" />
+				<arg value="${curdir}\MainPatchUpdaterScript.nsi" />
+			</exec>
+		</if>
+
+		<delete file="${outdir}\Uninstaller.exe" />
+
+
+		<!-- Authenticode sign installer, updater and patch updater (if key available) -->
+		<if test="${property::exists('authenticodekey')}">
+			<property name="exeFiles" value="FastnodeSetup.exe,FastnodeUpdater.exe"/>
+			<if test="${prevPatchVersion != ''}">
+				<property name="exeFiles" value="${exeFiles},FastnodePatchUpdater.exe"/>
+			</if>
+			<foreach item="String" in="${exeFiles}" delim="," property="filename">
+				<exec program="${winsdk}\signtool.exe">
+					<arg value="sign" /> <arg value="/f" /> <arg value="${authenticodekey}" /> <arg value="/p" /> <arg value="${authenticodepassword}" />
+					<arg value="/t" /> <arg value="http://timestamp.digicert.com" />
+					<arg value="/v" /> <arg value="${outdir}\${filename}" />
+				</exec>
+				<exec program="${winsdk}\signtool.exe">
+					<arg value="sign" /> <arg value="/f" /> <arg value="${authenticodekey}" /> <arg value="/p" /> <arg value="${authenticodepassword}" />
+					<arg value="/tr" /> <arg value="http://timestamp.digicert.com" />
+					<arg value="/td" /> <arg value="sha256" />
+					<arg value="/fd" /> <arg value="sha256" />
+					<arg value="/as" />
+					<arg value="/v" /> <arg value="${outdir}\${filename}" />
+				</exec>
+			</foreach>
+		</if>
+
+
+		<!-- Copy outdir files to the final build directory -->
+		<property name="finalbuilddir" value="${buildsdir}\${buildnumstring}" />
+		<copy todir="${finalbuilddir}\" flatten="true"><fileset><include name="${outdir}\*.*" /></fileset></copy>
+
+
+		<!-- Rename Setup + Updater + Patch Updater to include build number -->
+		<move file="${finalbuilddir}\FastnodeSetup.exe" tofile="${finalbuilddir}\FastnodeSetup${buildnumstring}.exe" />
+		<move file="${finalbuilddir}\FastnodeUpdater.exe" tofile="${finalbuilddir}\FastnodeUpdater${buildnumstring}.exe" />
+		<if test="${prevPatchVersion != ''}">
+			<move file="${finalbuilddir}\FastnodePatchUpdater.exe" tofile="${finalbuilddir}\FastnodePatchUpdater${prevPatchVersion}-${buildnumstring}.exe" />
+		</if>
+
+
+		<!-- Sign build with TEST update key -->
+		<exec program="${fastnodeupdatesigner}" workingdir="${curdir}\..\tools">
+			<arg value="--sign-with-test" />
+		</exec>
+
+		<if test="${prevPatchVersion != ''}">
+			<exec program="${fastnodepatchupdatesigner}" workingdir="${curdir}\..\tools">
+				<arg value="--sign-with-test" />
+			</exec>
+		</if>
+
+		<echo message="Final build is in ${finalbuilddir}." />
+
+	</target>
+</project>

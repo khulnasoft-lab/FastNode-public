@@ -1,0 +1,7 @@
+[Unit]
+Description=Fastnode Updater
+
+[Service]
+Type=oneshot
+StandardOutput=null
+ExecStart={{.HomeDir}}/.local/share/fastnode/current/fastnode-update "update" "silent"

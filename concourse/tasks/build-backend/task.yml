@@ -1,0 +1,13 @@
+platform: linux
+image_resource:
+  type: docker-image
+  source: {repository: khulnasoft-lab/concourse}
+
+inputs:
+- name: khulnasoft-lab
+  path: gopath/src/github.com/khulnasoft-lab/fastnode
+outputs:
+- name: build
+
+run:
+  path: gopath/src/github.com/khulnasoft-lab/fastnode/concourse/tasks/build-backend/run.bash

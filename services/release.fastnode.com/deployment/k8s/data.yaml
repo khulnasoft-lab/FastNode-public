@@ -1,0 +1,12 @@
+#@data/values
+---
+tag:
+namespace:
+hostname:
+name: release-fastnode-com
+env:
+project:
+port:
+ingressHostnames: []
+certificateDomains: []
+

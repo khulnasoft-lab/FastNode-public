@@ -39,8 +39,8 @@ class CommandRunner(object):
 
         # directories
         self.HOME_DIR = os.path.expanduser("~")
-        self.ROOT_GIT_REPO = os.path.expanduser("~/fastnodeco")
-        # self.GIT_REPO = os.path.expanduser("~/fastnodeco")
+        self.ROOT_GIT_REPO = os.path.expanduser("~/khulnasoft-lab")
+        # self.GIT_REPO = os.path.expanduser("~/khulnasoft-lab")
         self.BASE_PATH = os.path.expanduser("~/build_repos")
 
         self.build_paths()
@@ -55,22 +55,22 @@ class CommandRunner(object):
         self.SENDER= cmd_prefix
 
         base_path = os.path.join(self.BASE_PATH, "{}/".format(cmd_prefix))
-        repo_path = os.path.join(base_path, "src", "github.com", "fastnodeco", "fastnodeco")
+        repo_path = os.path.join(base_path, "src", "github.com", "khulnasoft-lab", "khulnasoft-lab")
 
         #  the release path is the place to put successfully finished plugin builds so the release commands always have
         #  a good version ready to deploy
         release_path = os.path.join(self.BASE_PATH, "release/")
-        release_repo_path = os.path.join(release_path, "src", "github.com", "fastnodeco", "fastnodeco")
+        release_repo_path = os.path.join(release_path, "src", "github.com", "khulnasoft-lab", "khulnasoft-lab")
         self.RELEASE_PLUGINS_DIR = os.path.join(release_repo_path, "plugins")
         self.PLUGIN_BIN_PATHS = {
             "Sublime Text 3": "sublimetext3-plugin/st_package_builder/target/st3/Fastnode.sublime-package",
         }
 
         self.cmd_env['GOPATH'] = base_path
-        self.cmd_env['FASTNODECO'] = repo_path
+        self.cmd_env['KHULNASOFT-LAB'] = repo_path
         self.cmd_env['SAFE_MODE'] = "true" if self.safe_mode else ""
         self.GIT_REPO = repo_path
-        self.PLUGIN_REPO = os.path.join(release_path, "src", "github.com", "fastnodeco", "plugins")
+        self.PLUGIN_REPO = os.path.join(release_path, "src", "github.com", "khulnasoft-lab", "plugins")
 
         self.SCRIPTS = os.path.join(self.GIT_REPO, "scripts")
         self.SCRIPT_OUTPUT = os.path.expanduser("~/tmp/")
@@ -790,8 +790,8 @@ class CommandRunner(object):
         readme_dirs = glob.glob(os.path.join(self.GIT_REPO, "plugins", "*", "README.md"))
         images_dirs = [os.path.join(os.path.dirname(d), "docs") for d in readme_dirs]
 
-        # remove "fastnodeco/" and "-plugin" substring for the respective directory in the plugins repo
-        plugin_dirs = [d.replace("fastnodeco/fastnodeco/", "fastnodeco/").replace("-plugin", "") for d in readme_dirs]
+        # remove "khulnasoft-lab/" and "-plugin" substring for the respective directory in the plugins repo
+        plugin_dirs = [d.replace("khulnasoft-lab/khulnasoft-lab/", "khulnasoft-lab/").replace("-plugin", "") for d in readme_dirs]
 
         # atom is not a submodule so pull master for it and add separately
         atom_repo = os.path.join(self.HOME_DIR, "atom-plugin")

@@ -1,0 +1,19 @@
+#@ load("@ytt:overlay", "overlay")
+#@data/values
+
+#@overlay/match by=overlay.all
+---
+env: staging
+hostname: release-staging.khulnasoft.com
+#! Allows QA to spoof these in /etc/hosts for QAing
+#@overlay/replace
+ingressHostnames:
+  - release-staging.khulnasoft.com
+  - release.khulnasoft.com
+  - linux.khulnasoft.com
+  - windows.khulnasoft.com
+#@overlay/replace
+certificateDomains:
+  - release-staging.khulnasoft.com
+port: 9093
+

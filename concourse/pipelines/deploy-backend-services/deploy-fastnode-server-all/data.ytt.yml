@@ -1,0 +1,4 @@
+#@data/values
+---
+  package_regexp: fastnode-server.tgz
+  terraform_location: fastnodeserver

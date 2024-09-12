@@ -1,0 +1,5 @@
+---
+metrics_collector::streams:
+  - fastnode_status
+  - client_events
+  - fastnode_service

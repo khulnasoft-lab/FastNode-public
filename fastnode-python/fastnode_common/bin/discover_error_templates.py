@@ -3,7 +3,7 @@
 #
 # Here's an example of invoking this script:
 #
-#    $ PYTHONPATH=$PYTHONPATH:~/fastnodeco/fastnode-python python bin/discover_error_templates.py ~/Downloads/golang_errors --out golang-templates.txt
+#    $ PYTHONPATH=$PYTHONPATH:~/khulnasoft-lab/fastnode-python python bin/discover_error_templates.py ~/Downloads/golang_errors --out golang-templates.txt
 #
 # The input file should look like this:
 #

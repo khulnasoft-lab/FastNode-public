@@ -1,0 +1,9 @@
+# Temp artifacts
+/fastnoded
+/linux-unpacked
+/dist.log
+/fastnode-installer.deb
+/fastnode-updater.sh
+/builds/
+/tensorflow_build/build/
+/tensorflow_build/tensorflow_build/

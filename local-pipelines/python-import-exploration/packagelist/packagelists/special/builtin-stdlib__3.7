@@ -1,0 +1,3 @@
+FROM khulnasoft-lab/python-import-exploration
+
+ENTRYPOINT ["/usr/bin/env", "python3", "-m", "fastnode.pkgexploration", "builtin-stdlib", "3.7", "builtin-stdlib__3.7.json", "builtin-stdlib__3.7.log"]

@@ -1,0 +1,16 @@
+.fastnode_gain, .valid {
+    background-color: #32B832;
+    color: white;
+}
+.fastnode_danger, .invalid {
+    background-color: #F2AAAA;
+}
+.empty {
+    background-color: yellow;
+}
+.invalidPkg {
+    background-color: #00FFFF;
+}
+.not_normalized {
+    background-color: #FFA500;
+}

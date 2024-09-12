@@ -1,0 +1,12 @@
+platform: windows
+inputs:
+- name: khulnasoft-lab
+  path: gopath/src/github.com/khulnasoft-lab/fastnode
+- name: version
+outputs:
+- name: build
+run:
+  path: bash
+  args: [gopath/src/github.com/khulnasoft-lab/fastnode/concourse/tasks/build-windows-client/run.bash]
+params:
+  WINDOWS_PASS: ((update_signing))

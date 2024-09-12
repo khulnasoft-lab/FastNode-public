@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# wrap commands to handle changes at runtime (the script is removed itself during uninstallation)
+{
+    ROOT="$HOME/.local/share/fastnode"
+    CURRENT="$ROOT/current"
+
+    CURRENT_VERSION="$(basename "$(readlink -f "$CURRENT")" | grep "fastnode-v" | sed -e 's/^fastnode-v//g')"
+    [ -z "$CURRENT_VERSION" ] && echo "No fastnode version found at $ROOT. Terminating." && exit 1
+
+    exec "$ROOT/fastnode-v$CURRENT_VERSION/fastnode-update" update
+}

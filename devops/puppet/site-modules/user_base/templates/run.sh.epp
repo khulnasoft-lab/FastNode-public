@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Source configuraiton
+source /var/fastnode/config.sh
+
+# Release specific configuration
+# Seems to be broken: "export HOSTNAME=$(hostname)"
+# export HOSTNAME=$(hostname)
+export REGION=<%= $facts[aws_region] %>
+export RELEASE=<%= $facts[khulnasoft-lab_version] %>
+export PROVIDER="aws"
+export AWS_REGION=<%= $facts[aws_region] %>
+
+# Dump limits/sysctl
+ulimit -a > /var/fastnode/log/ulimit.log
+sysctl -a > /var/fastnode/log/sysctl.log
+
+export LD_LIBRARY_PATH=/usr/local/lib
+
+exec <%= $executable %>

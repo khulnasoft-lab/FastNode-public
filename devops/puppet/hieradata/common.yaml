@@ -1,0 +1,4 @@
+fluentd::repo_url: "http://packages.treasuredata.com/3/ubuntu/bionic/"
+metricbeat::fields:
+  node_name: "%{facts.node_name}"
+  khulnasoft-lab_version: "%{facts.khulnasoft-lab_version}"

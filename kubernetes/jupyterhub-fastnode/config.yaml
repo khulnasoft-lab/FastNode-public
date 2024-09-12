@@ -1,0 +1,16 @@
+proxy:
+  secretToken: "XXXXXXX"
+
+singleuser:
+  image:
+    name: khulnasoft-lab/jupyterhub-fastnode
+    tag: XXXXXXX
+  defaultUrl: "/lab"
+  extraEnv:
+    FASTNODE_USER: "demo_jlab@khulnasoft.com"
+    FASTNODE_PASSWORD: "fastnode_in_a_lab"
+
+hub:
+  extraConfig:
+    jupyterlab: |
+      c.Spawner.cmd = "/usr/share/fastnode/run_fastnode.sh"

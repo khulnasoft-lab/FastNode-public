@@ -1,0 +1,8 @@
+[Desktop Entry]
+NoDisplay=true
+Type=Application
+Version={{.Version}}
+Name=Fastnode Copilot
+Exec={{.HomeDir}}/.local/share/fastnode/current/linux-unpacked/fastnode --no-sandbox %u
+Icon={{.HomeDir}}/.local/share/icons/hicolor/128x128/apps/fastnode.png
+MimeType=application/x-fastnode;x-scheme-handler/fastnode;

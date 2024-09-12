@@ -207,7 +207,7 @@ async def release(bot, items):  # pylint: disable=too-many-branches
     - `vscode`: publish vs code
     - `atom`: publish atom
     - `binaries`: publically upload binaries
-    - `readmes`: copy and push plugin readmes to fastnodeco/plugins
+    - `readmes`: copy and push plugin readmes to khulnasoft-lab/plugins
 
     NOTE: running a release will always release the *latest staged version* of the items to
     release, save for a few important exceptions:
