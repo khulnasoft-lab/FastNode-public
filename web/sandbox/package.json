@@ -22,7 +22,7 @@
     "codemirror": "^5.46.0",
     "core-js": "^3.0.1",
     "isomorphic-fetch": "^2.2.1",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.21",
     "react": "^16.8.6",
     "react-codemirror2": "^5.1.0",
     "react-dom": "^16.8.6",
