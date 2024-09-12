@@ -1,5 +1,5 @@
 # use "nvidia/cuda:10.0-cudnn7-devel-ubuntu16.04" for GPU runtime 
-FROM ubuntu:16.04 
+FROM ubuntu:24.04 
 
 # Python version
 ARG PYTHON_VERSION=3.7
